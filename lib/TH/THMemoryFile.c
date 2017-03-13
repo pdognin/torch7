@@ -1,5 +1,6 @@
 #include "THMemoryFile.h"
 #include "THFilePrivate.h"
+#include "stdint.h"
 
 typedef struct THMemoryFile__
 {
@@ -331,14 +332,16 @@ READ_WRITE_METHODS(int, Int,
                    nByteWritten = snprintf(mfself->storage->data+mfself->position, mfself->storage->size-mfself->position, "%d", data[i]),
                    1)
 
-/*READ_WRITE_METHODS(long, Long,
-                   int nByteRead_; int ret = sscanf(mfself->storage->data+mfself->position, "%ld%n", &data[i], &nByteRead_); nByteRead = nByteRead_; if(ret <= 0) break; else nread++,
-                   nByteWritten = snprintf(mfself->storage->data+mfself->position, mfself->storage->size-mfself->position, "%ld", data[i]),
-                   1)*/
-
 READ_WRITE_METHODS(float, Float,
                    int nByteRead_; int ret = sscanf(mfself->storage->data+mfself->position, "%g%n", &data[i], &nByteRead_); nByteRead = nByteRead_; if(ret <= 0) break; else nread++,
                    nByteWritten = snprintf(mfself->storage->data+mfself->position, mfself->storage->size-mfself->position, "%.9g", data[i]),
+                   1)
+
+READ_WRITE_METHODS(THHalf, Half,
+                   int nByteRead_; float buf; \
+                   int ret = sscanf(mfself->storage->data+mfself->position, "%g%n", &buf, &nByteRead_); \
+                   data[i] = TH_float2half(buf); nByteRead = nByteRead_; if(ret <= 0) break; else nread++,
+                   nByteWritten = snprintf(mfself->storage->data+mfself->position, mfself->storage->size-mfself->position, "%.9g", TH_half2float(data[i])),
                    1)
 
 READ_WRITE_METHODS(double, Double,
@@ -370,25 +373,26 @@ static size_t THMemoryFile_readLong(THFile *self, long *data, size_t n)
       mfself->position += nread*sizeof(long);
     } else if(mfself->longSize == 4)
     {
-      size_t i;
       size_t nByte = 4*n;
       size_t nByteRemaining = (mfself->position + nByte <= mfself->size ? nByte : mfself->size-mfself->position);
-      int *storage = (int *)(mfself->storage->data + mfself->position);
+      int32_t *storage = (int32_t *)(mfself->storage->data + mfself->position);
       nread = nByteRemaining/4;
+      size_t i;
       for(i = 0; i < nread; i++)
         data[i] = storage[i];
       mfself->position += nread*4;
     }
     else /* if(mfself->longSize == 8) */
     {
-      int i, big_endian = !THDiskFile_isLittleEndianCPU();
+      int big_endian = !THDiskFile_isLittleEndianCPU();
       size_t nByte = 8*n;
-      long *storage = (long *)(mfself->storage->data + mfself->position);
+      int32_t *storage = (int32_t *)(mfself->storage->data + mfself->position);
       size_t nByteRemaining = (mfself->position + nByte <= mfself->size ? nByte : mfself->size-mfself->position);
       nread = nByteRemaining/8;
+      size_t i;
       for(i = 0; i < nread; i++)
         data[i] = storage[2*i + big_endian];
-      mfself->position += nread*4;
+      mfself->position += nread*8;
     }
   }
   else
@@ -447,20 +451,21 @@ static size_t THMemoryFile_writeLong(THFile *self, long *data, size_t n)
       mfself->position += nByte;
     } else if(mfself->longSize == 4)
     {
-      int i;
       size_t nByte = 4*n;
-      int *storage = (int *)(mfself->storage->data + mfself->position);
       THMemoryFile_grow(mfself, mfself->position+nByte);
+      int32_t *storage = (int32_t *)(mfself->storage->data + mfself->position);
+      size_t i;
       for(i = 0; i < n; i++)
         storage[i] = data[i];
       mfself->position += nByte;
     }
     else /* if(mfself->longSize == 8) */
     {
-      int i, big_endian = !THDiskFile_isLittleEndianCPU();
+      int big_endian = !THDiskFile_isLittleEndianCPU();
       size_t nByte = 8*n;
-      long *storage = (long *)(mfself->storage->data + mfself->position);
       THMemoryFile_grow(mfself, mfself->position+nByte);
+      int32_t *storage = (int32_t *)(mfself->storage->data + mfself->position);
+      size_t i;
       for(i = 0; i < n; i++)
       {
         storage[2*i + !big_endian] = 0;
@@ -479,7 +484,7 @@ static size_t THMemoryFile_writeLong(THFile *self, long *data, size_t n)
     size_t i;
     for(i = 0; i < n; i++)
     {
-      size_t nByteWritten;
+      ssize_t nByteWritten;
       while (1)
       {
         nByteWritten = snprintf(mfself->storage->data+mfself->position, mfself->storage->size-mfself->position, "%ld", data[i]);
@@ -516,7 +521,7 @@ static size_t THMemoryFile_writeLong(THFile *self, long *data, size_t n)
   return n;
 }
 
-static char* THMemoryFile_cloneString(const char *str, long size)
+static char* THMemoryFile_cloneString(const char *str, ptrdiff_t size)
 {
   char *cstr = THAlloc(size);
   memcpy(cstr, str, size);
@@ -618,6 +623,7 @@ THFile *THMemoryFile_newWithStorage(THCharStorage *storage, const char *mode)
     THMemoryFile_readLong,
     THMemoryFile_readFloat,
     THMemoryFile_readDouble,
+    THMemoryFile_readHalf,
     THMemoryFile_readString,
 
     THMemoryFile_writeByte,
@@ -627,6 +633,7 @@ THFile *THMemoryFile_newWithStorage(THCharStorage *storage, const char *mode)
     THMemoryFile_writeLong,
     THMemoryFile_writeFloat,
     THMemoryFile_writeDouble,
+    THMemoryFile_writeHalf,
     THMemoryFile_writeString,
 
     THMemoryFile_synchronize,

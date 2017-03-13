@@ -2,7 +2,6 @@
 #define TH_GENERIC_FILE "generic/THTensorConv.c"
 #else
 
-
 /*
   2D Input, 2D kernel  : convolve given image with the given kernel.
 */
@@ -45,7 +44,7 @@ void THTensor_(validXCorr2Dptr)(real *r_,
       for (ky = 0; ky < kr; ky++) {
         real *pis_ = pi_;
         for (kx = 0; kx < kc; kx++) {
-          THVector_(add)(r_, pis_, alpha*pw_[kx], oc);
+          THVector_(cadd)(r_, r_, pis_, alpha*pw_[kx], oc);
           pis_++;
         }
         pi_ += ic; /* next input line */
@@ -98,7 +97,7 @@ void THTensor_(validConv2Dptr)(real *r_,
       for (ky = 0; ky < kr; ky++) {
         real *pis_ = pi_;
         for (kx = 0; kx < kc; kx++) {
-          THVector_(add)(r_, pis_, alpha*pw_[-kx], oc);
+          THVector_(cadd)(r_, r_, pis_, alpha*pw_[-kx], oc);
           pis_++;
         }
         pi_ += ic; /* next input line */
@@ -150,7 +149,7 @@ void THTensor_(fullConv2Dptr)(real *r_,
       for (ky = 0; ky < kr; ky++) {
         real *pos_ = po_;
         for (kx = 0; kx < kc; kx++) {
-          THVector_(add)(pos_, t_, alpha*pw_[kx], ic);
+          THVector_(cadd)(pos_, pos_, t_, alpha*pw_[kx], ic);
           pos_++;
         }
         po_ += oc; /* next input line */
@@ -203,7 +202,7 @@ void THTensor_(fullXCorr2Dptr)(real *r_,
       for (ky = 0; ky < kr; ky++) {
         real *pos_ = po_;
         for (kx = 0; kx < kc; kx++) {
-          THVector_(add)(pos_, t_, pw_[-kx]*alpha, ic);
+          THVector_(cadd)(pos_, pos_, t_, pw_[-kx]*alpha, ic);
           pos_++;
         }
         po_ += oc; /* next input line */
@@ -256,7 +255,7 @@ void THTensor_(validXCorr2DRevptr)(real *r_,
         real z = *k_++ * alpha;
 
         for(ky = 0; ky < or; ky++) {
-          THVector_(add)(po_, pi_, z, oc);
+          THVector_(cadd)(po_, po_, pi_, z, oc);
           pi_ += ic;
           po_ += oc;
         }
@@ -590,7 +589,7 @@ void THTensor_(conv2DRevger)(THTensor *r_, real beta, real alpha, THTensor *t_, 
   real *input_data;
   real *weight_data;
   real *output_data;
-  long nelem;
+  ptrdiff_t nelem;
   long k;
 
   THArgCheck(t_->nDimension == 3 , 3, "input: 3D Tensor expected");
@@ -697,7 +696,7 @@ void THTensor_(conv2DRevgerm)(THTensor *r_, real beta, real alpha, THTensor *t_,
   real *input_data;
   real *weight_data;
   real *output_data;
-  long nelem;
+  ptrdiff_t nelem;
   long k;
 
   THArgCheck(t_->nDimension == 4 , 3, "input: 4D Tensor expected");
@@ -775,7 +774,7 @@ void THTensor_(conv2DRevgerm)(THTensor *r_, real beta, real alpha, THTensor *t_,
         real *ptr_output = output_data + k*nInputPlane*nOutputCols*nOutputRows + i*nOutputCols*nOutputRows;
         /* get input */
         real *ptr_input = input_data + p*istride0 + i*istride1;
-  
+
         /* do image, kernel convolution */
         THTensor_(validXCorr2DRevptr)(ptr_output,
                                       alpha,
@@ -809,7 +808,7 @@ void THTensor_(conv2Dger)(THTensor *r_, real beta, real alpha, THTensor *t_, THT
   real *input_data;
   real *weight_data;
   real *output_data;
-  long nelem;
+  ptrdiff_t nelem;
   long k;
 
   THArgCheck(t_->nDimension == 3 , 3, "input: 3D Tensor expected");
@@ -941,7 +940,7 @@ void THTensor_(conv2Dmv)(THTensor *r_, real beta, real alpha, THTensor *t_, THTe
   real *input_data;
   real *weight_data;
   real *output_data;
-  long nelem;
+  ptrdiff_t nelem;
   long k;
 
   THArgCheck(t_->nDimension == 3 , 3, "input: 3D Tensor expected");
@@ -1076,7 +1075,7 @@ void THTensor_(conv2Dmm)(THTensor *r_, real beta, real alpha, THTensor *t_, THTe
   THTensor *input;
   THTensor* kernel;
   long nbatch;
-  long nelem;
+  ptrdiff_t nelem;
   real *input_data;
   real *weight_data;
   real *output_data;
@@ -1174,7 +1173,7 @@ void THTensor_(conv2Dmm)(THTensor *r_, real beta, real alpha, THTensor *t_, THTe
         real *ptr_weight = weight_data + k*kstride0 + i*kstride1;
         /* get input */
         real *ptr_input = input_data + p*nInputPlane*nInputRows*nInputCols + i*nInputRows*nInputCols;
-  
+
         /* do image, kernel convolution */
         if (*vf == 'F')
           if (*xc == 'X')
@@ -1229,7 +1228,7 @@ void THTensor_(conv2Dmul)(THTensor *r_, real beta, real alpha, THTensor *t_, THT
   real *ptr_input;
   real *ptr_weight;
   real *output_data;
-  long nelem;
+  ptrdiff_t nelem;
 
   THArgCheck(t_->nDimension == 2 , 3, "input: 2D Tensor expected");
   THArgCheck(k_->nDimension == 2 , 4, "kernel: 2D Tensor expected");
@@ -1287,7 +1286,7 @@ void THTensor_(conv2Dcmul)(THTensor *r_, real beta, real alpha, THTensor *t_, TH
   real *input_data;
   real *weight_data;
   real *output_data;
-  long nelem;
+  ptrdiff_t nelem;
   long k;
 
   THArgCheck(t_->nDimension == 3 , 3, "input: 3D Tensor expected");
@@ -1365,7 +1364,7 @@ void THTensor_(conv2Dmap)(THTensor *r_, real beta, real alpha, THTensor *t_, THT
   real *weight_data;
   real *output_data;
   long nmaps;
-  long nelem;
+  ptrdiff_t nelem;
   long k;
 
   THArgCheck(t_->nDimension == 3 , 3, "input: 3D Tensor expected");
@@ -1453,7 +1452,7 @@ void THTensor_(conv3DRevger)(THTensor *r_, real beta, real alpha, THTensor *t_, 
   real *input_data;
   real *weight_data;
   real *output_data;
-  long nelem;
+  ptrdiff_t nelem;
   long k, i;
 
   THArgCheck(t_->nDimension == 4 , 3, "input: 4D Tensor expected");
@@ -1540,7 +1539,7 @@ void THTensor_(conv3Dger)(THTensor *r_, real beta, real alpha, THTensor *t_, THT
   real *input_data;
   real *weight_data;
   real *output_data;
-  long nelem;
+  ptrdiff_t nelem;
   long k, i;
 
   THArgCheck(t_->nDimension == 4 , 3, "input: 4D Tensor expected");
@@ -1632,7 +1631,7 @@ void THTensor_(conv3Dmv)(THTensor *r_, real beta, real alpha, THTensor *t_, THTe
   real *input_data;
   real *weight_data;
   real *output_data;
-  long nelem;
+  ptrdiff_t nelem;
   long k, i;
 
   THArgCheck(t_->nDimension == 4 , 3, "input: 4D Tensor expected");
@@ -1728,7 +1727,7 @@ void THTensor_(conv3Dmul)(THTensor *r_, real beta, real alpha, THTensor *t_, THT
   real *ptr_input;
   real *ptr_weight;
   real *output_data;
-  long nelem;
+  ptrdiff_t nelem;
 
   THArgCheck(t_->nDimension == 3 , 3, "input: 3D Tensor expected");
   THArgCheck(k_->nDimension == 3 , 4, "kernel: 3D Tensor expected");
@@ -1794,7 +1793,7 @@ void THTensor_(conv3Dcmul)(THTensor *r_, real beta, real alpha, THTensor *t_, TH
   real *input_data;
   real *weight_data;
   real *output_data;
-  long nelem;
+  ptrdiff_t nelem;
   long k;
 
   THArgCheck(t_->nDimension == 4 , 3, "input: 3D Tensor expected");
@@ -1876,7 +1875,7 @@ void THTensor_(conv3Dmap)(THTensor *r_, real beta, real alpha, THTensor *t_, THT
 
   THTensor *input;
   THTensor *kernel;
-  long nelem;
+  ptrdiff_t nelem;
   real *input_data;
   real *weight_data;
   real *output_data;
@@ -1955,5 +1954,4 @@ void THTensor_(conv3Dmap)(THTensor *r_, real beta, real alpha, THTensor *t_, THT
   THTensor_(free)(input);
   THTensor_(free)(kernel);
 }
-
 #endif

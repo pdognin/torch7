@@ -5,14 +5,14 @@ local Storage = {}
 local Tensor = {}
 
 -- types
-local types = {'Byte', 'Char', 'Short', 'Int', 'Long', 'Float', 'Double'}
+local types = {'Byte', 'Char', 'Short', 'Int', 'Long', 'Float', 'Half', 'Double'}
 
 -- Lua 5.2 compatibility
 local log10 = math.log10 or function(x) return math.log(x, 10) end
 
 -- tostring() functions for Tensor and Storage
 local function Storage__printformat(self)
-   if self:size() == 0 then 
+   if self:size() == 0 then
      return "", nil, 0
    end
    local intMode = true
@@ -277,6 +277,10 @@ function Tensor.double(self)
    return self:type('torch.DoubleTensor')
 end
 
+function Tensor.half(self)
+   return self:type('torch.HalfTensor')
+end
+
 function Tensor.real(self)
    return self:type(torch.getdefaulttensortype())
 end
@@ -389,7 +393,7 @@ torch.repeatTensor = Tensor.repeatTensor
 --- One of the size elements can be -1,
  --- a new LongStorage is then returned.
  --- The length of the unspecified dimension
- --- is infered from the number of remaining elements.
+ --- is inferred from the number of remaining elements.
 local function specifyFully(size, nElements)
     local nCoveredElements = 1
     local remainingDim = nil
@@ -521,9 +525,10 @@ torch.chunk = Tensor.chunk
 
 function Tensor.totable(tensor)
   local result = {}
-  if tensor:dim() == 1 then
+  local dim = tensor:dim()
+  if dim == 1 then
     tensor:apply(function(i) table.insert(result, i) end)
-  else
+  elseif dim > 0 then
     for i = 1, tensor:size(1) do
       table.insert(result, tensor[i]:totable())
     end
@@ -555,6 +560,14 @@ torch.permute = Tensor.permute
 for _,type in ipairs(types) do
    local metatable = torch.getmetatable('torch.' .. type .. 'Tensor')
    for funcname, func in pairs(Tensor) do
-      rawset(metatable, funcname, func)
+      if funcname ~= 'totable' or type ~='Half' then
+         rawset(metatable, funcname, func)
+      else
+         local function Tensor__totable(self)
+            local host_tensor = self:float()
+            return self:float():totable()
+         end
+         rawset(torch.getmetatable('torch.HalfTensor'), 'totable', Tensor__totable)
+      end
    end
 end

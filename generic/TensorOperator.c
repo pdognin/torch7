@@ -14,7 +14,7 @@ static int torch_TensorOperator_(__add__)(lua_State *L)
   {
     r = THTensor_(new)();
     luaT_pushudata(L, r, torch_Tensor);
-    
+
     if(!tensor1 && tensor2)
     {
       THTensor_(resizeAs)(r, tensor2);
@@ -49,7 +49,7 @@ static int torch_TensorOperator_(__sub__)(lua_State *L)
   {
     r = THTensor_(new)();
     luaT_pushudata(L, r, torch_Tensor);
-    
+
     if(!tensor1 && tensor2)
     {
       THTensor_(resizeAs)(r, tensor2);
@@ -60,7 +60,7 @@ static int torch_TensorOperator_(__sub__)(lua_State *L)
     {
       THTensor_(resizeAs)(r, tensor1);
       THTensor_(copy)(r, tensor1);
-      THTensor_(add)(r, r, -luaL_checknumber(L, 2));
+      THTensor_(add)(r, r, -(real)luaL_checknumber(L, 2));
     }
     else
     {
@@ -98,7 +98,7 @@ static int torch_TensorOperator_(__mul__)(lua_State *L)
   {
     r = THTensor_(new)();
     luaT_pushudata(L, r, torch_Tensor);
-    
+
     if(!tensor1 && tensor2)
     {
       THTensor_(resizeAs)(r, tensor2);
@@ -115,7 +115,7 @@ static int torch_TensorOperator_(__mul__)(lua_State *L)
     {
       int dimt = tensor1->nDimension;
       int dims = tensor2->nDimension;
-      
+
       if(dimt == 1 && dims == 1)
         lua_pushnumber(L, THTensor_(dot)(tensor1, tensor2)); /* ok, we wasted r, but who cares */
       else if(dimt == 2 && dims == 1)
@@ -131,7 +131,7 @@ static int torch_TensorOperator_(__mul__)(lua_State *L)
         THTensor_(addmm)(r, 1, r, 1, tensor1, tensor2);
       }
       else
-        luaL_error(L, "multiplication between %dD and %dD tensors not yet supported", tensor1->nDimension, tensor2->nDimension); 
+        luaL_error(L, "multiplication between %dD and %dD tensors not yet supported", tensor1->nDimension, tensor2->nDimension);
     }
   }
   return 1;
@@ -149,7 +149,24 @@ static int torch_TensorOperator_(__div__)(lua_State *L)
 
   THTensor_(resizeAs)(r, tensor);
   THTensor_(copy)(r, tensor);
-  THTensor_(mul)(r, r, 1/lua_tonumber(L, 2));
+  THTensor_(div)(r, r, lua_tonumber(L, 2));
+
+  return 1;
+}
+
+static int torch_TensorOperator_(__mod__)(lua_State *L)
+{
+  THTensor *tensor = luaT_checkudata(L, 1, torch_Tensor);
+  THTensor *r;
+
+  THArgCheck(lua_isnumber(L,2), 2, "number expected");
+
+  r = THTensor_(new)();
+  luaT_pushudata(L, r, torch_Tensor);
+
+  THTensor_(resizeAs)(r, tensor);
+  THTensor_(copy)(r, tensor);
+  THTensor_(remainder)(r, r, lua_tonumber(L, 2));
 
   return 1;
 }
@@ -160,6 +177,7 @@ static const struct luaL_Reg torch_TensorOperator_(_) [] = {
   {"__unm__", torch_TensorOperator_(__unm__)},
   {"__mul__", torch_TensorOperator_(__mul__)},
   {"__div__", torch_TensorOperator_(__div__)},
+  {"__mod__", torch_TensorOperator_(__mod__)},
   {NULL, NULL}
 };
 
